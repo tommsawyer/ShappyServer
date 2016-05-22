@@ -1,0 +1,31 @@
+{
+  "name": "MMM-API-Server",
+  "version": "1.0.0",
+  "description": "MMM api server",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": {
+    "name": "Tom Sawyer",
+    "email": "mortraineymusic@gmail.com"
+  },
+  "engines": {
+    "node": ">= 5.0.0",
+    "npm": ">= 3.3.12"
+  },
+  "dependencies": {
+    "body-parser": "^1.14.1",
+    "crypto-js": "^3.1.5",
+    "express": "*",
+    "gm": "^1.21.1",
+    "mime": "^1.3.4",
+    "mongoose": "^4.2.8",
+    "multer": "^1.1.0",
+    "nodemailer": "^1.11.0",
+    "supertest": "^1.1.0"
+  },
+  "devDependencies": {},
+  "bundleDependencies": [],
+  "private": true,
+  "main": "index.js"
+}

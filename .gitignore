@@ -1,0 +1,7 @@
+/configs/*.json
+/node_modules
+/public/stocks/?*.*
+/public/users/?*.*
+/public/companies/?*.*
+/logs/log.txt
+/.idea/
