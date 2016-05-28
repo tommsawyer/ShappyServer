@@ -1,3 +1,5 @@
+'use strict';
+
 var ObjectID = require('mongodb').ObjectId,
     mongoose = require('mongoose'),
     QueryBuilder = require('../../../lib/query_builder'),

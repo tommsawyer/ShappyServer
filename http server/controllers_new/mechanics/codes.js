@@ -2,6 +2,7 @@
 
 var JSONError       = require('../../../lib/json_error'),
     mongoose        = require('mongoose'),
+    QueryBuilder    = require('../../../lib/query_builder'),
     StringResources = require('../../../utils/string_resources'),
     Stock           = mongoose.model('Stock');
 
@@ -10,7 +11,9 @@ class CodesController {
         var activationCode = req.query.code,
             activationInfo = {};
 
-        Stock.getStockBySubcriptionCode(activationCode)
+        var query = QueryBuilder.findInArray('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
+
+        Stock.findOneAndPopulate(query)
             .then(function(stock) {
                 if (!stock.isOwnedBy(req.company._id)) {
                     var rightsError = new JSONError(StringResources.answers.ERROR,
@@ -37,11 +40,11 @@ class CodesController {
             .then(function(stock) {
                 if (!stock.isOwnedBy(req.company._id)) {
                     var rightsError = new JSONError(StringResources.answers.ERROR,
-                        StringResources.answers.NOT_ENOUGH_RIGHTS, 403);
+                        StringResources.errors.NOT_ENOUGH_RIGHTS, 403);
                     return next(rightsError);
                 }
 
-                return stock.viewsController.incrementNumberOfUses(code)
+                return stock.viewsController.incrementNumberOfUses(code);
             })
             .then(function() {
                res.JSONAnswer(StringResources.answers.APPLY, StringResources.answers.OK);

@@ -1,0 +1,7 @@
+{
+  "port": 8080,
+  "mongooseUrl": "mongodb://localhost/",
+  "prodDatabaseName": "shappy",
+  "testDatabaseName": "test",
+  "verifyRedirectUrl": "http://fast-anchorage-39702.herokuapp.com/verify?token="
+}

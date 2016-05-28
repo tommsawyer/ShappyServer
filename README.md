@@ -1,8 +1,19 @@
-**MMM API server**
+**Shappy API server**
 
-Сервер для проекта МММ.
+Сервер для проекта Shappy.
 
 Ссылки:
 
 + [Серверная доска трелло](https://trello.com/b/YlfJr12S/mmm-server)
-+ [Таблица с API](https://docs.google.com/document/d/1isxEo3Gyzm2L_i7EM5JoGRpRbQgqnH09YXQgxRi4cwo)
+
+Установка:
+
+
+1. Установить последнюю версию **node.js** и **npm**
+2. Склонировать проект
+3. Выполнить **npm install** из папки с проектом для установки зависимостей
+4. Скопировать содержимое папки *sample configs* в папку *configs*
+5. Заполнить конфигурационные файлы в папке *configs*
+6. Установить image magick в вашу ОС(archlinux: **sudo pacman -S imagemagick**)
+    используется для сжатия и конвертации картинок
+7. Запустить **npm start** из папки с проектом для запуска сервера

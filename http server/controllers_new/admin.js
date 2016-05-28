@@ -1,3 +1,5 @@
+'use strict';
+
 var path     = require('path'),
     mongoose = require('mongoose'),
     Category = mongoose.model('Category');

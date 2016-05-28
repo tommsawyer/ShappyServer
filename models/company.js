@@ -1,11 +1,9 @@
-var mongoose  = require('mongoose');
-var Schema    = mongoose.Schema;
-var User      = mongoose.model('User');
-var JSONError = require('../lib/json_error');
-var SHA256    = require('crypto-js/sha256');
-var ImagesController = require('../lib/mechanics/company/images');
-var MailController = require('../lib/mechanics/company/mail');
-var ActivationController = require('../lib/mechanics/company/activation');
+var mongoose             = require('mongoose'),
+    ImagesController     = require('../lib/mechanics/company/images'),
+    MailController       = require('../lib/mechanics/company/mail'),
+    ActivationController = require('../lib/mechanics/company/activation'),
+    Schema               = mongoose.Schema,
+    User                 = mongoose.model('User');
 
 var CompanySchema = new Schema({
     name: String,
@@ -38,53 +36,7 @@ CompanySchema.methods.toJSON = function () {
     return companyJSON;
 };
 
-CompanySchema.methods.createImages = function(filename){
-    if (!filename) {
-        return;
-    }
 
-    this.logo = '/companies/' + filename;
-};
-
-CompanySchema.methods.isSubscribed = function (userID) {
-    return this.subscribers.indexOf(userID) !== -1;
-};
-
-CompanySchema.methods.addSubscriber = function (subscriberID) {
-    var self = this;
-
-    return new Promise(function(resolve, reject) {
-        if (self.isSubscribed(subscriberID)) {
-            return reject(new JSONError('error', 'Этот пользователь уже есть в подписчиках'));
-        }
-
-        self.subscribers.push(subscriberID);
-        self.save((err) => {
-            if (err) return reject(err);
-
-            Shappy.logger.info('Добавил пользователя ' + subscriberID.toString() + ' к подписчикам компании ' + self._id.toString());
-            resolve();
-        });
-    });
-};
-
-CompanySchema.methods.removeSubscriber = function (subcriberID) {
-    var self = this;
-
-    return new Promise(function(resolve, reject) {
-        if (!self.isSubscribed(subscriberID)) {
-            return reject(new JSONError('error', 'Этого пользователя нет в подписчиках'));
-        }
-
-        this.subscribers.splice(self.subscribers.indexOf(subcriberID), 1);
-        this.save((err) => {
-            if (err) return reject(err);
-
-            Shappy.logger.info('Удалил пользователя ' + id.toString() + ' из подписчиков компании ' + this._id.toString());
-            resolve();
-        });
-    });
-};
 
 CompanySchema.statics.findAndActivateByHash = function(hash) {
     var self = this,
