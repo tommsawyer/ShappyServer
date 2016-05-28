@@ -3,7 +3,7 @@ var mongoose  = require('mongoose'),
     ObjectID  = require('mongodb').ObjectId,
     Company   = mongoose.model('Company'),
     Category  = mongoose.model('Category'),
-    StringResources = require('../../utils/string_resources');
+    StringResources = require('../../lib/string_resources');
 
 var registerNewCompany = function(req, res, next) {
 

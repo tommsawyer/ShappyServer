@@ -21,14 +21,14 @@ router.post('/remove', Controllers.Common.mustBeLoggedAsCompany,
                        Controllers.Stocks.removeStock);
 
 router.get('/me', Controllers.Common.mustBeLoggedAsCompany,
-                  Controllers.Stocks.getCurrentCompanyStocks);
+                  Controllers.Stocks.getStocksOfCurrentCompany);
 
 
 router.use(Controllers.Common.mustBeLoggedAsClient);
 
 router.post('/subscribe', Controllers.Stocks.subscribeClientToStock);
 router.post('/unsubscribe', Controllers.Stocks.unsubscribeClientFromStock);
-router.get('/feed', Controllers.Stock.getClientFeed);
-router.get('/all', Controllers.Stock.getAllStocks);
+router.get('/feed', Controllers.Stocks.getClientFeed);
+router.get('/all', Controllers.Stocks.getAllStocks);
 
 module.exports = router;

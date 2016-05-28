@@ -3,7 +3,7 @@ var fs        = require('fs');
 var ObjectID  = require('mongodb').ObjectID;
 var JSONError = require('../lib/json_error');
 var Schema    = mongoose.Schema;
-var StringResources = require('../utils/string_resources');
+var StringResources = require('../lib/string_resources');
 
 var StockSchema = new Schema({
     name: String,
@@ -191,6 +191,10 @@ StockSchema.methods.checkOwner = function (companyID) {
         (this.company._id == companyID.toString());
 };
 
+StockSchema.methods.isOwnedBy = function (companyID) {
+    return (this.company.toString() == companyID.toString()) ||
+        (this.company._id == companyID.toString());
+};
 
 StockSchema.methods.prepareRemove = function (callback) {
     var subscribers = this.subscribes;

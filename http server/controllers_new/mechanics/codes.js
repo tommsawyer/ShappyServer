@@ -3,7 +3,7 @@
 var JSONError       = require('../../../lib/json_error'),
     mongoose        = require('mongoose'),
     QueryBuilder    = require('../../../lib/query_builder'),
-    StringResources = require('../../../utils/string_resources'),
+    StringResources = require('../../../lib/string_resources'),
     Stock           = mongoose.model('Stock');
 
 class CodesController {

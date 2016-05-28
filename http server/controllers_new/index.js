@@ -1,7 +1,7 @@
 module.exports = {
     Admin:      require('./admin'),
     Common:     require('./common'),
-    Company:    require('./company')
+    Company:    require('./company'),
     Client:     require('./client'),
     Codes:      require('./mechanics/codes'),
     Filter:     require('./mechanics/filter'),

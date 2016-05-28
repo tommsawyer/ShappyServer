@@ -1,6 +1,5 @@
 var express          = require('express'),
     Controllers      = require('../controllers_new'),
-    AuthManager      = require('../../lib/auth_manager'),
     FileStorages     = require('../../lib/file_storages'),
     StockRouter      = require('./models/stocks'),
     CompaniesRouter  = require('./models/companies'),
@@ -10,7 +9,7 @@ var express          = require('express'),
 
 const REGISTER_REQUIRED_FIELDS = ['login', 'password'];
 
-router.post('/register', FileStorages.saveCompanyLogoFromField('logo'),
+router.post('/register', FileStorages.saveCompanyLogoFromField.single('logo'),
                          Controllers.Common.fieldsMustPresent(REGISTER_REQUIRED_FIELDS),
                          Controllers.Common.loginAndPasswordMustBeCorrect,
                          Controllers.Company.registerNewCompany);
@@ -26,10 +25,10 @@ router.get( '/activate', Controllers.Common.fieldsMustPresent(['hash']),
                          Controllers.Company.tryActivateCompany);
 
 
-router.use( '/stocks/create', FileStorages.saveStockImageFromField('logo'));
-router.use( '/stocks/edit',   FileStorages.saveStockImageFromField('logo'));
+router.use( '/stocks/create', FileStorages.saveStockImageFromField.single('logo'));
+router.use( '/stocks/edit',   FileStorages.saveStockImageFromField.single('logo'));
 
-router.use(AuthManager.loadCompanyModel);
+router.use(Controllers.Common.loadCompanyModel);
 router.use('/stocks',     StockRouter);
 router.use('/companies',  CompaniesRouter);
 router.use('/categories', CategoriesRouter);

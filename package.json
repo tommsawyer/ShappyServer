@@ -1,9 +1,11 @@
 {
-  "name": "MMM-API-Server",
+  "name": "Shappy-API-Server",
   "version": "1.0.0",
-  "description": "MMM api server",
+  "description": "Shappy api server",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "createdb": "node ./scripts/create_test_database.js",
+    "dropdb": "node ./scripts/drop_database.js"
   },
   "author": {
     "name": "Tom Sawyer",

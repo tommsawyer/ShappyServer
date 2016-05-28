@@ -1,7 +1,7 @@
 'use strict';
 
 var JSONError       = require('../../../lib/json_error'),
-    StringResources = require('../../../utils/string_resources'),
+    StringResources = require('../../../lib/string_resources'),
     mongoose        = require('mongoose'),
     Stock           = mongoose.model('Stock'),
     QueryBuilder    = require('../../../lib/query_builder');

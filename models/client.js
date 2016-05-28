@@ -2,7 +2,7 @@ var mongoose          = require('mongoose'),
     Schema            = mongoose.Schema,
     ObjectID          = require('mongodb').ObjectID,
     JSONError         = require('../lib/json_error'),
-    FriendsController = require('../lib/mechanics/client/friends');
+    Mechanics         = require('../lib/mechanics'),
     User              = mongoose.model('User');
 
 var ClientSchema = new Schema({
@@ -103,29 +103,6 @@ ClientSchema.methods.unsubscribe = function (id) {
     this.save();
 };
 
-ClientSchema.methods.subscribeToCompany = function (id, callback) {
-    if (this.filters.companies.indexOf(id) != -1) {
-        return callback(new JSONError('error', 'Вы уже подписаны на эту компанию'));
-    }
-
-    this.filters.companies.push(id);
-    Shappy.logger.info('Пользователь ' + this.login + ' подписался на компанию с айди ' + id.toString());
-    callback(null);
-    this.save();
-};
-
-ClientSchema.methods.unsubscribeFromCompany = function (id, callback) {
-    var companyPosition = this.filters.companies.indexOf(id);
-
-    if (companyPosition == -1) {
-        return callback(new JSONError('error', 'Вы не подписаны на эту компанию'));
-    }
-
-    this.filters.companies.splice(companyPosition, 1);
-    Shappy.logger.info('Пользователь ' + this.login + ' отписался от компании с айди ' + id.toString());
-    callback(null);
-    this.save();
-};
 
 ClientSchema.methods.subscribeToCategory = function (id, callback) {
     if (this.filters.categories.indexOf(id) != -1) {
@@ -221,7 +198,12 @@ ClientSchema.statics.byFilter = function(userID, FIO, mail, phone, callback) {
 
 // Инициализация контроллеров модели
 ClientSchema.post('init', (model, next) => {
-    model.friendsController = new FriendsController(model);
+    model.friendsController    = new Mechanics.Client.FriendsController(model);
+    model.companiesController  = new Mechanics.Client.CompaniesController(model);
+    model.categoriesController = new Mechanics.Client.CategoriesController(model);
+    model.stocksController     = new Mechanics.Client.StocksController(model);
+    model.subscribesController = new Mechanics.Client.SubscribesController(model);
+
     next();
 });
 

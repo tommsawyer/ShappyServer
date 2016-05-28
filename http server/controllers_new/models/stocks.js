@@ -4,7 +4,7 @@ var ObjectID = require('mongodb').ObjectId,
     mongoose = require('mongoose'),
     QueryBuilder = require('../../../lib/query_builder'),
     JSONError = require('../../../lib/json_error'),
-    StringResources = require('../../../utils/string_resources');
+    StringResources = require('../../../lib/string_resources'),
     Stock    = mongoose.model('Stock');
 
 class StockController {
@@ -92,7 +92,31 @@ class StockController {
         }).catch(next);
     }
 
-    static editStock(req, res, next) {
+    static editStock (req, res, next) {
+
+    }
+
+    static removeStock (req, res, next) {
+
+    }
+
+    static getStocksOfCurrentCompany (req, res, next) {
+
+    }
+
+    static subscribeClientToStock (req, res, next) {
+
+    }
+
+    static unsubscribeClientFromStock (req, res, next) {
+
+    }
+
+    static getClientFeed (req, res, next) {
+
+    }
+
+    static getAllStocks (req, res, next) {
 
     }
 }

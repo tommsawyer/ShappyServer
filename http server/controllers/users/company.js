@@ -117,7 +117,7 @@ router.get( '/activate',      tryActivateCompany);
 router.use( '/stocks/create', stockLogo.single('logo'));
 router.use( '/stocks/edit',   stockLogo.single('logo'));
 
-router.use(AuthManager.mustBeLoggedAsCompany);
+router.use(Controllers.common.mustBeLoggedAsCompany);
 router.use('/stocks',     Stocks);
 router.use('/companies',  Companies);
 router.use('/categories', Categories);

@@ -1,8 +1,7 @@
 var mongoose   = require('mongoose'),
     Schema     = mongoose.Schema,
     JSONError  = require('../lib/json_error'),
-    SHA256     = require('crypto-js/sha256'),
-    dateHelper = require('../utils/dateHelper');
+    SHA256     = require('crypto-js/sha256');
 
 var UserSchema = new Schema({
     login: {
@@ -33,6 +32,7 @@ UserSchema.methods.getToken = function () {
         Shappy.logger.info('Токен пользователя ' + this.login + ' устарел или не существует');
         this.token = {
             createdAt: new Date(),
+            //TODO: перенести в Shappy utils
             expiredAt: dateHelper.getDateAfter(10),
             value: SHA256(this.hashedPassword + this.login)
         };

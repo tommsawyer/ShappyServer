@@ -1,7 +1,7 @@
 'use strict';
 
 var mongoose        = require('mongoose'),
-    StringResources = require('../../utils/string_resources'),
+    StringResources = require('../../lib/string_resources'),
     QueryBuilder    = require('../../lib/query_builder'),
     JSONError       = require('../../lib/json_error'),
     Client          = mongoose.model('Client');
