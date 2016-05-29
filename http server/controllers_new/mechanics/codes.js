@@ -11,7 +11,7 @@ class CodesController {
         var activationCode = req.query.code,
             activationInfo = {};
 
-        var query = QueryBuilder.findInArray('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
+        var query = QueryBuilder.findInArrayField('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
 
         Stock.findOneAndPopulate(query)
             .then(function(stock) {
@@ -23,7 +23,7 @@ class CodesController {
 
                 activationInfo.stock = stock.toJSON();
 
-                return stock.getClientOfActivationCode(activationCode)
+                return stock.usagesController.getUserByCode(activationCode);
             })
             .then(function(client) {
                 activationInfo.user = client.toJSON();
@@ -34,9 +34,10 @@ class CodesController {
     }
 
     static applyActivationCode(req, res, next) {
-        var activationCode = req.body.code;
+        var activationCode = req.body.code,
+            query = QueryBuilder.findInArrayField('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
 
-        Stock.getStockBySubcriptionCode(activationCode)
+        Stock.findOneAndPopulate(query)
             .then(function(stock) {
                 if (!stock.isOwnedBy(req.company._id)) {
                     var rightsError = new JSONError(StringResources.answers.ERROR,
@@ -44,7 +45,7 @@ class CodesController {
                     return next(rightsError);
                 }
 
-                return stock.viewsController.incrementNumberOfUses(code);
+                return stock.usagesController.incrementNumberOfUses(code);
             })
             .then(function() {
                res.JSONAnswer(StringResources.answers.APPLY, StringResources.answers.OK);

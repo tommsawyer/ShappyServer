@@ -51,7 +51,22 @@ class FilterController {
     }
 
     static findSubscribedStocks(req, res, next) {
+        var query = QueryBuilder.some(
+            QueryBuilder.valueInArray('company',  req.user.filters.companies),
+            QueryBuilder.valueInArray('category', req.user.filters.categories)
+        );
 
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                stocks.forEach(function(stock) {
+                    stock.viewsController.incrementFeedViews();
+                });
+
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+
+                res.JSONAnswer(StringResources.answers.SUBSCRIPTIONS, stocksJSON);
+            })
+            .catch(next);
     }
 
     static findFriendsStocks(req, res, next) {

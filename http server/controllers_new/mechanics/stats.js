@@ -18,12 +18,14 @@ class StatsController {
 
                 var dates = {};
 
-                Stock.arrayToJSON(stocks).forEach((stock) => {
-                    stock.subscribes.forEach((subscr) => {
-                        var date = subscr.date.toDateString();
-                        dates[date] = dates[date] + 1 || 1;
+                stocks
+                    .map(stock => stock.toJSON())
+                    .forEach((stock) => {
+                        stock.subscribes.forEach((subscr) => {
+                            var date = subscr.date.toDateString();
+                            dates[date] = dates[date] + 1 || 1;
+                        });
                     });
-                });
 
                 res.JSONAnswer(StringResources.answers.STOCKS_PER_DATE, dates);
             })

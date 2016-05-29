@@ -2,6 +2,7 @@ var mongoose  = require('mongoose');
 var fs        = require('fs');
 var ObjectID  = require('mongodb').ObjectID;
 var JSONError = require('../lib/json_error');
+var Mechanics = require('../lib/mechanics');
 var Schema    = mongoose.Schema;
 var StringResources = require('../lib/string_resources');
 
@@ -224,6 +225,15 @@ StockSchema.methods.prepareRemove = function (callback) {
 };
 
 
+// Инициализация контроллеров модели
+StockSchema.post('init', (model, next) => {
+    model.imagesController     = new Mechanics.Stock.ImagesController(model);
+    model.subscribesController = new Mechanics.Stock.SubscribesController(model);
+    model.usagesController     = new Mechanics.Stock.UsagesController(model);
+    model.viewsController      = new Mechanics.Stock.ViewsController(model);
+
+    next();
+});
 
 StockSchema.pre('save', function (next) {
     Shappy.logger.info('Сохраняю акцию ' + this._id);

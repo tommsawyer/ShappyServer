@@ -70,7 +70,7 @@ class Server {
      */
     _notFoundMiddleware(req, res, next) {
         // передаем управление обработчику ошибок
-        var jsonError = new JSONError('Unknown request url', req.method + ' ' + req.url, 404);
+        var jsonError = new JSONError('Неизвестный тип и/или путь запроса', req.method + ' ' + req.url, 404);
         next(jsonError);
     }
 
