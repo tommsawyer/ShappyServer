@@ -24,12 +24,12 @@ class Server {
         this.app.use(express.static(PATH_TO_STATIC_CONTENT));
         this.app.use(BodyParser.urlencoded({extended: true}));
 
-        this.app.use(this._initRequestMiddleware);
+        this.app.use(this._initRequestMiddleware.bind(this));
 
         this.app.use(Router);
 
-        this.app.use(this._notFoundMiddleware);
-        this.app.use(this._errorHandlerMiddleware);
+        this.app.use(this._notFoundMiddleware.bind(this));
+        this.app.use(this._errorHandlerMiddleware.bind(this));
 
         Shappy.logger.info('Подключил контроллеры, настроил роуты');
     }

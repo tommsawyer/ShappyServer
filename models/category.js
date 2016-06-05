@@ -22,6 +22,8 @@ CategorySchema.statics.createJsonFromAllCategories = function() {
 };
 
 CategorySchema.statics.findCategoryByID = function(categoryID) {
+    var self = this;
+
     if (typeof categoryID === 'string') {
         try {
             categoryID = new ObjectID(categoryID);
@@ -31,7 +33,7 @@ CategorySchema.statics.findCategoryByID = function(categoryID) {
     }
 
     return new Promise(function(resolve, reject) {
-        this.find({_id: categoryID}, function(err, category) {
+        self.find({_id: categoryID}, function(err, category) {
             if (err) return reject(err);
             resolve(category);
         });

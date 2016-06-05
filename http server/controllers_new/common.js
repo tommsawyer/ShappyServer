@@ -1,24 +1,19 @@
 'use strict';
 
-var JsonError = require('../../lib/json_error');
+var JSONError = require('../../lib/json_error'),
+    mongoose  = require('mongoose');
 
 class CommonController {
-    static fieldsMustPresent(fieldsArray) {
+    static fieldsMustPresent(requiredFieldsArray) {
         return function (req, res, next) {
-            var emptyFields = [],
-            queryParams = req.method === 'POST' ? req.body : req.query;
-
-            fieldsArray.forEach(function (field) {
-                if (!queryParams[field]) {
-                    emptyFields.push(field);
-                }
-            });
+            var queryParams = req.method === 'POST' ? req.body : req.query,
+                emptyFields = requiredFieldsArray.filter(fieldName => !queryParams[fieldName]);
 
             var isAllFieldsPresent = (emptyFields.length === 0);
 
             if (!isAllFieldsPresent) {
-                emptyFields = emptyFields.join(' ');
-                return next(new JsonError('bad request', 'В запросе нет полей: ' + emptyFields));
+                var emptyFieldsString = emptyFields.join(', ');
+                return next(new JSONError('bad request', 'В запросе не заполнены поля: ' + emptyFieldsString));
             }
 
             next();

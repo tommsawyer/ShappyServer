@@ -224,7 +224,6 @@ StockSchema.methods.prepareRemove = function (callback) {
     });
 };
 
-
 // Инициализация контроллеров модели
 StockSchema.post('init', (model, next) => {
     model.imagesController     = new Mechanics.Stock.ImagesController(model);
@@ -239,6 +238,7 @@ StockSchema.pre('save', function (next) {
     Shappy.logger.info('Сохраняю акцию ' + this._id);
     next();
 });
+
 mongoose.model('Stock', StockSchema);
 
 Shappy.logger.info('Подключил модель Stock');

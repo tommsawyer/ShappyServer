@@ -1,3 +1,3 @@
-var request = require('../request');
+var request = require('../test_server');
 
 

@@ -7,9 +7,15 @@ var express          = require('express'),
 
     router  = express.Router();
 
-router.post('/register',  Controllers.Client.registerNewClient);
+const CLIENT_REGISTER_REQUIRED_FIELDS = ['login', 'password', 'name', 'surname', 'mail', 'phone'];
 
-router.post('/authorize', Controllers.Client.authorizeClient);
+router.post('/register',  Controllers.Common.fieldsMustPresent(CLIENT_REGISTER_REQUIRED_FIELDS),
+                          Controllers.Common.loginAndPasswordMustBeCorrect,
+                          Controllers.Client.loginMustBeFree,
+                          Controllers.Client.registerNewClient);
+
+router.post('/authorize', Controllers.Common.fieldsMustPresent(['login', 'password']),
+                          Controllers.Client.authorizeClient);
 
 router.use(Controllers.Common.loadClientModel);
 

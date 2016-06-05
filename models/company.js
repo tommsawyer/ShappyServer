@@ -1,28 +1,25 @@
-var mongoose             = require('mongoose'),
-    ImagesController     = require('../lib/mechanics/company/images'),
-    MailController       = require('../lib/mechanics/company/mail'),
-    ActivationController = require('../lib/mechanics/company/activation'),
-    Schema               = mongoose.Schema,
-    User                 = mongoose.model('User');
+var mongoose  = require('mongoose'),
+    Mechanics = require('../lib/mechanics'),
+    Schema    = mongoose.Schema,
+    User      = mongoose.model('User');
 
 var CompanySchema = new Schema({
-    name: String,
-    INN: String,
-    OGRN: String,
-    category: Schema.Types.ObjectId,
-    parentCompany: String,
-    region: String,
-    email: String,
-    address: String,
-    logo: String,
-    type: String,
-    subscribers: [Schema.Types.Object],
-    active: Boolean,
+    name:           String,
+    INN:            String,
+    OGRN:           String,
+    category:       Schema.Types.ObjectId,
+    parentCompany:  String,
+    region:         String,
+    email:          String,
+    address:        String,
+    logo:           String,
+    subscribers:    [Schema.Types.ObjectId],
+    active:         Boolean,
     activationHash: String
 });
 
 CompanySchema.methods.toJSON = function () {
-    var companyJSON =  {
+    return {
         id: this._id,
         name: this.name,
         INN: this.INN,
@@ -32,36 +29,31 @@ CompanySchema.methods.toJSON = function () {
         address: this.address,
         logo: this.logo
     };
-
-    return companyJSON;
 };
 
-
-
-CompanySchema.statics.findAndActivateByHash = function(hash) {
-    var self = this,
-        searchQuery = {
-            activationHash: hash
-        };
+CompanySchema.methods.promisedSave = function() {
+    var self = this;
 
     return new Promise(function(resolve, reject) {
-        self.findOne(searchQuery, (err, company) => {
+        self.save(function(err) {
             if (err) return reject(err);
-
-            if (!company) 
-                return reject(new Error('Нет такой компании или уже активирована'));
-
-            resolve(company.activationController.activate());
+            resolve(self);
         });
     });
+};
 
+CompanySchema.statics.injectControllers = function(model) {
+    model.imagesController     = new Mechanics.Company.ImagesController(model);
+    model.mailController       = new Mechanics.Company.MailController(model);
+    model.activationController = new Mechanics.Company.ActivationController(model);
 };
 
 // Инициализация контроллеров модели
 CompanySchema.post('init', (model, next) => {
-    model.imagesController     = new ImagesController(model);
-    model.mailController       = new MailController(model);
-    model.activationController = new ActivationController(model);
+    model.imagesController     = new Mechanics.Company.ImagesController(model);
+    model.mailController       = new Mechanics.Company.MailController(model);
+    model.activationController = new Mechanics.Company.ActivationController(model);
+
     next();
 });
 

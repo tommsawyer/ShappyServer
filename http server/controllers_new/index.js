@@ -2,6 +2,7 @@ module.exports = {
     Admin:      require('./admin'),
     Common:     require('./common'),
     Company:    require('./company'),
+    Models:     require('./models'),
     Client:     require('./client'),
     Codes:      require('./mechanics/codes'),
     Filter:     require('./mechanics/filter'),

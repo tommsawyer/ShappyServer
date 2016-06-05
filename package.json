@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "createdb": "node ./scripts/create_test_database.js",
-    "dropdb": "node ./scripts/drop_database.js"
+    "dropdb": "node ./scripts/drop_test_database.js"
   },
   "author": {
     "name": "Tom Sawyer",

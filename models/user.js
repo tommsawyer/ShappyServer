@@ -32,8 +32,7 @@ UserSchema.methods.getToken = function () {
         Shappy.logger.info('Токен пользователя ' + this.login + ' устарел или не существует');
         this.token = {
             createdAt: new Date(),
-            //TODO: перенести в Shappy utils
-            expiredAt: dateHelper.getDateAfter(10),
+            expiredAt: Shappy.utils.addDaysToDate(new Date(), 10),
             value: SHA256(this.hashedPassword + this.login)
         };
         Shappy.logger.info('Сгенерировал новый токен(' + this.token.value + ')');

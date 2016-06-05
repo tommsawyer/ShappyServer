@@ -1,11 +1,11 @@
 'use strict';
 
-var ObjectID = require('mongodb').ObjectId,
-    mongoose = require('mongoose'),
-    QueryBuilder = require('../../../lib/query_builder'),
-    JSONError = require('../../../lib/json_error'),
+var ObjectID        = require('mongodb').ObjectId,
+    mongoose        = require('mongoose'),
+    QueryBuilder    = require('../../../lib/query_builder'),
+    JSONError       = require('../../../lib/json_error'),
     StringResources = require('../../../lib/string_resources'),
-    Stock    = mongoose.model('Stock');
+    Stock           = mongoose.model('Stock');
 
 class StockController {
     static getInfoAboutStock(req, res, next) {
@@ -32,7 +32,7 @@ class StockController {
                 // если информацию о акции запросил обычный пользователь,
                 // то увеличим счетчик просмотров акции
                 if (req.user) {
-                    stock.viewsController.incrementNumberOfViews();
+                    stock.viewsController.incrementFeedViews();
                     clientID = req.user._id;
                 }
 
@@ -97,15 +97,46 @@ class StockController {
     }
 
     static removeStock (req, res, next) {
+        var query = QueryBuilder.entityIdEqualsTo(req.body.id);
 
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock) {
+                    var notFoundError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.errors.NO_SUCH_STOCK, 404);
+                    return next(notFoundError);
+                }
+
+                if (!stock.isOwnedBy(req.company._id)) {
+                    var rightsError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.errors.NOT_ENOUGH_RIGHTS);
+                    return next(rightsError);
+                }
+
+                stock.prepareRemove().then(function(stock) {
+                    stock.remove();
+                    Shappy.logger.info('Акция с айди ' + stock._id + ' удалена');
+                    res.JSONAnswer(StringResources.answers.STOCK, stock._id);
+                });
+            })
+            .catch(next);
     }
 
     static getStocksOfCurrentCompany (req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.company._id);
 
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                Shappy.logger.info('Отправляю клиенту акции компании ' + req.company.login);
+
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+
+                res.JSONAnswer(StringResources.answers.STOCKS, stocksJSON);
+            })
+            .catch(next);
     }
 
     static subscribeClientToStock (req, res, next) {
-
     }
 
     static unsubscribeClientFromStock (req, res, next) {
@@ -113,11 +144,25 @@ class StockController {
     }
 
     static getClientFeed (req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.user.stocks);
 
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+                res.JSONAnswer(StringResources.answers.USER_STOCKS, stocksJSON);
+            })
+            .catch(next);
     }
 
     static getAllStocks (req, res, next) {
+        var findAllQuery = {};
 
+        Stock.findAndPopulate(findAllQuery)
+            .then(function(stocks) {
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+                res.JSONAnswer(StringResources.answers.STOCK, stocksJSON);
+            })
+            .catch(next);
     }
 }
 

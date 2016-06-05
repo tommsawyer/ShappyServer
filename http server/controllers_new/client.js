@@ -34,7 +34,7 @@ class ClientController {
 
         client.promisedSave()
             .then(function(client) {
-                Shappy.logger.info('Создан новый пользователь с логином' + client.login);
+                Shappy.logger.info('Создан новый пользователь с логином ' + client.login);
                 res.JSONAnswer(StringResources.answers.REGISTER, client.getToken());
             })
             .catch(next);
@@ -49,6 +49,13 @@ class ClientController {
             if (!client) {
                 var error = new JSONError(StringResources.answers.ERROR,
                                           StringResources.errors.NO_SUCH_USER);
+                return next(error);
+            }
+
+            if (!client.checkPassword(req.body.password)) {
+                var incorrectPasswordError = new JSONError(StringResources.answers.ERROR,
+                                                           StringResources.errors.INCORRECT_PASSWORD);
+                return next(incorrectPasswordError);
             }
 
             var userInfo = client.toJSON();

@@ -32,6 +32,7 @@ ClientSchema
         return fio.split(' ')[1]
     });
 
+
 ClientSchema.methods.getSubscribitions = function (callback) {
     var Stock = mongoose.model('Stock');
     var subscribitions = this.stocks.map((id) => {
@@ -193,6 +194,16 @@ ClientSchema.statics.byFilter = function(userID, FIO, mail, phone, callback) {
         callback(null, clients.map((client) => {
             return client.toJSON();
         }));
+    });
+};
+
+ClientSchema.methods.promisedSave = function() {
+    var self = this;
+    return new Promise(function(resolve, reject) {
+        self.save(function(err) {
+            if (err) return reject(err);
+            resolve(self);
+        });
     });
 };
 

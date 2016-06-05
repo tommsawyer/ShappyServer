@@ -7,11 +7,13 @@ var express          = require('express'),
     StatsRouter      = require('./mechanics/stats'),
     router           = express.Router();
 
-const REGISTER_REQUIRED_FIELDS = ['login', 'password'];
+const REGISTER_REQUIRED_FIELDS = ['login', 'password', 'category'];
 
 router.post('/register', FileStorages.saveCompanyLogoFromField.single('logo'),
                          Controllers.Common.fieldsMustPresent(REGISTER_REQUIRED_FIELDS),
                          Controllers.Common.loginAndPasswordMustBeCorrect,
+                         Controllers.Company.loginMustBeFree,
+                         Controllers.Models.loadCategoryFromField('category'),
                          Controllers.Company.registerNewCompany);
 
 router.post('/authorize', Controllers.Common.fieldsMustPresent(['login', 'password']),
@@ -19,11 +21,10 @@ router.post('/authorize', Controllers.Common.fieldsMustPresent(['login', 'passwo
                           Controllers.Company.authorizeCompany);
 
 router.post('/resend', Controllers.Common.fieldsMustPresent(['id']),
-                       Controllers.Company.resendActivationEmail);
+                       Controllers.Company.resendCompanyActivationEmail);
 
 router.get( '/activate', Controllers.Common.fieldsMustPresent(['hash']),
                          Controllers.Company.tryActivateCompany);
-
 
 router.use( '/stocks/create', FileStorages.saveStockImageFromField.single('logo'));
 router.use( '/stocks/edit',   FileStorages.saveStockImageFromField.single('logo'));
