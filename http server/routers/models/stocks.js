@@ -1,5 +1,5 @@
 var express      = require('express'),
-    Controllers  = require('../../controllers_new'),
+    Controllers  = require('../../controllers'),
     FilterRouter = require('../mechanics/filter'),
     CodesRouter  = require('../mechanics/codes'),
     router       = express.Router();

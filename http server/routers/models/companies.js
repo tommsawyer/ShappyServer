@@ -1,5 +1,5 @@
 var express     = require('express'),
-    Controllers = require('../../controllers_new'),
+    Controllers = require('../../controllers'),
     router      = express.Router();
 
 router.get('/info', Controllers.Companies.getInfoAboutCompany);

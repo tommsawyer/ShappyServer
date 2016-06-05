@@ -1,121 +1,124 @@
-var express   = require('express');
-var mongoose  = require('mongoose');
-var mw        = require('../../utils/middlewares.js');
-var ObjectID  = require('mongodb').ObjectID;
-var JSONError = require('../../lib/json_error');
-var Company   = mongoose.model('Company');
-var router    = express.Router();
+'use strict';
 
-router.get('/all', mw.requireClientAuth, (req, res, next) => {
-    Company.find({}, (err, companies) => {
-        if (err) {
-            next(err);
-        }
+var JSONError       = require('../../../lib/json_error'),
+    StringResources = require('../../../lib/string_resources'),
+    QueryBuilder    = require('../../../lib/query_builder'),
+    mongoose        = require('mongoose'),
+    Company         = mongoose.model('Company');
 
-        if (!companies){
-            Shappy.logger.warn('На сервере нет ни одной компании!');
-        }
-
-        var comp = companies.map((company) => {return company.toJSON()});
-
-        Shappy.logger.info('Отправляю все компании пользователю. Всего ' + comp.length);
-        res.JSONAnswer('companies', comp);
-    });
-});
-
-router.get('/me', mw.requireCompanyAuth, (req, res, next) => {
-    Shappy.logger.info('Присылаю информацию о компании ' + req.company._id);
-    res.JSONAnswer('company', req.company.toJSON());
-});
-
-router.get('/info', mw.requireAnyAuth, (req, res, next) => {
-    var companyID;
-
-    try {
-        companyID = new ObjectID(req.query.id);
-    } catch (e) {
-        return next(new JSONError('error', 'Некорректный айди компании - ' + req.query.id));
+class CompaniesController {
+    static getCurrentCompanyInfo (req, res, next) {
+        Shappy.logger.info('Присылаю информацию о компании ' + req.company._id);
+        res.JSONAnswer(StringResources.answers.COMPANY, req.company.toJSON());
     }
 
-    Company.findOne({_id: companyID}, (err, company) => {
-        if (err) {
-            throw err;
+    static getInfoAboutCompany (req, res, next) {
+        var companyID = Shappy.utils.tryConvertToMongoID(req.query.id);
+
+        if (companyID === null) {
+            var error = new JSONError(StringResources.answers.ERROR,
+                                      StringResources.errors.NO_SUCH_COMPANY, 404);
+            return next(error);
         }
 
-        if (!company) {
-            return next(new JSONError('error', 'Нет такой компании'));
-        }
+        var query = QueryBuilder.entityIdEqualsTo(companyID);
 
-        req.JSONAnswer('company', company.toJSON());
-    });
+        Company.findOne(query, function(err, company) {
+            if (!company) {
+                var error = new JSONError(StringResources.answers.ERROR,
+                    StringResources.errors.NO_SUCH_COMPANY, 404);
+                return next(error);
+            }
 
-});
-
-router.post('/subscribe', mw.requireClientAuth, (req, res, next) => {
-    try {
-        var CompanyID = new ObjectID(req.body.id);
-    } catch (e) {
-        return next(new JSONError('error', 'Компании с таким айди не найдено', 404));
+            res.JSONAnswer(StringResources.answers.COMPANY, company.toJSON());
+        });
     }
 
-    Company.findOne({_id: CompanyID}, (err, company) => {
-        if (err) return next(err);
+    static getAllCompanies (req, res, next) {
+        Company.find({}, (err, companies) => {
+            if (err) {
+                return next(err);
+            }
 
-        if (!company) return next(new JSONError('error', 'Компании с таким айди не найдено', 404));
+            var comp = companies.map((company) => {return company.toJSON()});
 
-        req.user.subscribeToCompany(company._id, (err) => {
+            Shappy.logger.info('Отправляю все компании пользователю. Всего ' + comp.length);
+            res.JSONAnswer(StringResources.answers.COMPANIES, comp);
+        });
+    }
+
+    static subscribeClientToCompany (req, res, next) {
+        var companyID = Shappy.utils.tryConvertToMongoID(req.body.id);
+
+        if (companyID === null) {
+            var error = new JSONError(StringResources.answers.ERROR,
+                                      StringResources.errors.NO_SUCH_COMPANY, 404);
+            return next(error);
+        }
+
+        var query = QueryBuilder.entityIdEqualsTo(companyID);
+
+        Company.findOne(query, function(err, company) {
             if (err) return next(err);
 
-            company.addSubscriber(req.user._id, (err) => {
-                if (err) Shappy.logger.error(err);
-            });
+            if (!company) {
+                var error = new JSONError(StringResources.answers.ERROR,
+                    StringResources.errors.NO_SUCH_COMPANY, 404);
+                return next(error);
+            }
 
-            res.JSONAnswer('company', 'success');
+            req.user.companiesController.subscribeTo(company)
+                .then(function() {
+                    res.JSONAnswer(StringResources.answers.COMPANY, StringResources.answers.SUCCESS);
+                })
+                .catch(next);
         });
-    });
-});
-
-router.post('/unsubscribe', mw.requireClientAuth, (req, res, next) => {
-    try {
-        var CompanyID = new ObjectID(req.body.id);
-    } catch (e) {
-        return next(new JSONError('error', 'Компании с таким айди не найдено', 404));
     }
 
-    Company.findOne({_id: CompanyID}, (err, company) => {
-        if (err) return next(err);
 
-        if (!company) return next(new JSONError('error', 'Компании с таким айди не найдено', 404));
+    static unsubscribeClientFromCompany (req, res, next) {
+        var companyID = Shappy.utils.tryConvertToMongoID(req.body.id);
 
-        req.user.unsubscribeFromCompany(company._id, (err) => {
+        if (companyID === null) {
+            var error = new JSONError(StringResources.answers.ERROR,
+                StringResources.errors.NO_SUCH_COMPANY, 404);
+            return next(error);
+        }
+
+        var query = QueryBuilder.entityIdEqualsTo(companyID);
+
+        Company.findOne(query, function(err, company) {
             if (err) return next(err);
 
-            company.removeSubscriber(req.user._id, (err) => {
-                if (err) Shappy.logger.error(err);
-            });
+            if (!company) {
+                var error = new JSONError(StringResources.answers.ERROR,
+                    StringResources.errors.NO_SUCH_COMPANY, 404);
+                return next(error);
+            }
 
-            res.JSONAnswer('company', 'success');
+            req.user.companiesController.unsubcribeFrom(company)
+                .then(function() {
+                    res.JSONAnswer(StringResources.answers.COMPANY, StringResources.answers.SUCCESS);
+                })
+                .catch(next);
         });
-    });
-});
 
-router.get('/filter/search', mw.requireClientAuth, (req, res, next) => {
-    Shappy.logger.info('Ищу компании по запросу ' + req.query.searchword);
-    var searchRegExp = new RegExp('.*' + req.query.searchword + '.*', 'i');
+    }
 
-    Company.find({name: {$regex: searchRegExp}}, (err, companies) => {
-        if (err) return next(err);
+    static findCompaniesByFilter (req, res, next) {
+        //TODO: доделать
+    }
 
-        res.JSONAnswer('companies', companies.map((comp) => comp.toJSON()));
-    });
-});
+    static getClientSubscribedCompanies (req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.user.filters.companies);
 
-router.get('/subscriptions', mw.requireClientAuth, (req, res, next) => {
-    Company.find({_id: {$in: req.user.filters.companies}}, (err, companies) => {
-        if (err) return next(err);
+        Company.find(query, (err, companies) => {
+            if (err) return next(err);
 
-        res.JSONAnswer('companies', companies.map((company) => {return company.toJSON()}));
-    });
-});
+            res.JSONAnswer(StringResources.answers.COMPANIES,
+                companies.map(company => company.toJSON()));
+        });
+    }
+}
 
-module.exports = router;
+module.exports = CompaniesController;

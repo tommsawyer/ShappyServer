@@ -1,5 +1,5 @@
 var express          = require('express'),
-    Controllers      = require('../controllers_new'),
+    Controllers      = require('../controllers'),
     FileStorages     = require('../../lib/file_storages'),
     StockRouter      = require('./models/stocks'),
     CompaniesRouter  = require('./models/companies'),

@@ -1,5 +1,5 @@
 var express          = require('express'),
-    Controllers      = require('../controllers_new'),
+    Controllers      = require('../controllers'),
     StocksRouter     = require('./models/stocks'),
     CompaniesRouter  = require('./models/companies'),
     FriendsRouter    = require('./mechanics/friends'),

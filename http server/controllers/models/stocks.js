@@ -1,217 +1,169 @@
-var express    = require('express');
-var mongoose   = require('mongoose');
-var mw         = require('../../utils/middlewares.js');
-var ObjectID   = require('mongodb').ObjectID;
-var filter     = require('../mechanics/filter.js');
-var codes      = require('../mechanics/codes.js');
-var dateHelper = require('../../utils/dateHelper.js');
-var Stock      = mongoose.model('Stock');
-var router     = express.Router();
-var JSONError  = require('../../lib/json_error');
+'use strict';
 
+var ObjectID        = require('mongodb').ObjectId,
+    mongoose        = require('mongoose'),
+    QueryBuilder    = require('../../../lib/query_builder'),
+    JSONError       = require('../../../lib/json_error'),
+    StringResources = require('../../../lib/string_resources'),
+    Stock           = mongoose.model('Stock');
 
-router.use('/filter', filter);
-router.use('/codes',  codes);
+class StockController {
+    static getInfoAboutStock(req, res, next) {
+        var stockID = Shappy.utils.tryConvertToMongoID(req.query.id);
 
-router.post('/create', mw.requireCompanyAuth, (req, res, next) => {
-    var categoryID  = null;
-    var startDate   = dateHelper.tryParseDate(req.body.startDate);
-    var endDate     = dateHelper.tryParseDate(req.body.endDate);
+        if (stockID === null) {
+            var error = new JSONError(StringResources.answers.STOCK_INFO,
+                StringResources.errors.NO_SUCH_STOCK, 404);
+            return next(error);
+        }
 
-    if (!req.file) {
-        return next(new JSONError('error', 'У акции не указан логотип!'));
+        var query = QueryBuilder.entityIdEqualsTo(stockID);
+
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                var clientID, stockJSON;
+
+                if (!stock) {
+                    var error = new JSONError(StringResources.answers.STOCK_INFO,
+                        StringResources.errors.NO_SUCH_STOCK, 404);
+                    return next(error);
+                }
+
+                // если информацию о акции запросил обычный пользователь, а не компания,
+                // то увеличим счетчик просмотров акции
+                if (req.user) {
+                    stock.viewsController.incrementFeedViews();
+                    clientID = req.user._id;
+                }
+
+                stockJSON = stock.toJSON(clientID);
+
+                res.JSONAnswer(StringResources.answers.STOCK_INFO, stockJSON);
+            })
+            .catch(next);
     }
 
-    try {
-        categoryID = new ObjectID(req.body.category);
-    } catch (e) {}
+    static createNewStock(req, res, next) {
+        var categoryID = Shappy.utils.tryConvertToMongoID(req.body.category),
+            startDate  = Shappy.utils.tryParseDate(req.body.startDate),
+            endDate    = Shappy.utils.tryParseDate(req.body.endDate);
 
+        var isCorrectDates = (startDate &&
+                              endDate &&
+                              Shappy.utils.isCurrentDateBetween(startDate, endDate));
 
-    if (!dateHelper.checkDates(startDate, endDate))
-        return next(new JSONError('error', 'Даты проведения акции указаны некорректно'));
-
-    var stock = new Stock({
-        name: req.body.name,
-        category: categoryID,
-        description: req.body.description,
-        company: req.company._id,
-        startDate: startDate,
-        endDate: endDate
-    });
-
-    stock.createImages(req.file);
-
-    stock.save((err, stock) => {
-        if (err) {
-            return next(err);
+        if (!isCorrectDates) {
+            var datesError = new JSONError(StringResources.answers.ERROR,
+                StringResources.errors.STOCK_DATES_INCORRECT);
+            return next(datesError);
         }
 
-        res.JSONAnswer('stock', {id: stock._id, logo: stock.logo});
-    });
-});
-
-router.post('/edit', mw.requireCompanyAuth, (req, res, next) => {
-    var startDate = dateHelper.tryParseDate(req.body.startDate);
-    var endDate   = dateHelper.tryParseDate(req.body.endDate);
-
-    if (!dateHelper.checkDates(startDate, endDate))
-        return next(new JSONError('error', 'Даты проведения акции указаны некорректно'));
-
-    try {
-        var categoryID = new ObjectID(req.body.category);
-    } catch (e) {}
-
-
-    Stock.findOne({'_id' : new ObjectID(req.body.id)}, (err, stock) => {
-        if (err) return next(err);
-
-        if (!stock) {
-            Shappy.logger.warn('Нет акции с айди ' + req.body.id);
-            return next(new JSONError('error', 'Нет такой акции'));
+        if (categoryID === null) {
+            var categoryError = new JSONError(StringResources.answers.ERROR,
+                StringResources.errors.NO_SUCH_CATEGORY, 404);
+            return next(categoryError);
         }
-
-        if (!stock.checkOwner(req.company._id)) {
-            Shappy.logger.warn('Компания с айди ' + req.company._id + ' не может редактировать акцию ' + req.body.id);
-            return next(new JSONError('error', 'Вы не можете редактировать эту акцию'));
-        }
-
-        if (categoryID) {
-            stock.category = categoryID;
-        }
-
-        stock.name = req.body.name;
-        stock.description = req.body.description;
-        stock.startDate = startDate;
-        stock.endDate = endDate;
 
         if (!req.file) {
-            Shappy.logger.warn('Запрос редактирования акции без логотипа');
-
-            stock.save((err) => {
-                if (err) return next(err);
-                res.JSONAnswer('stock', stock.logo);
-            });
-        } else {
-            stock.removeImages((err) => {
-                if (err) return next(err);
-
-                stock.createImages(req.file);
-
-                stock.save((err) => {
-                    if (err) return next(err);
-                    res.JSONAnswer('stock', stock.logo);
-                });
-            });
-        }
-    });
-});
-
-router.post('/remove', mw.requireCompanyAuth, (req, res, next) => {
-    Stock.findOne({_id: req.body.id}, (err, stock) => {
-        if (err) {
-            return next(err);
-        }
-        if (!stock) {
-            return next(new JSONError('error', 'Нет такой акции'));
+            var imageError = new JSONError(StringResources.answers.ERROR,
+                StringResources.errors.IMAGE_NOT_PRESENT_IN_REQUEST);
+            return next(imageError);
         }
 
-        if (!stock.checkOwner(req.company._id.toString())) {
-            return next(new JSONError('error', 'Эта компания не имеет прав для удаления этой акции'));
-        }
+        var stockParameters = {
+            name:        req.body.name,
+            category:    categoryID,
+            description: req.body.description,
+            company:     req.company._id,
+            startDate:   startDate,
+            endDate:     endDate
+        };
 
-        stock.prepareRemove((err) => {
-            if (err) {
-                return next(err);
-            }
+        var stock = new Stock(stockParameters);
+        stock.imagesController.createImages(req.file);
 
-            stock.remove();
-            Shappy.logger.info('Акция с айди ' + stock._id + ' удалена');
-            res.JSONAnswer('stock', stock._id);
-        });
-    });
-});
+        stock.promisedSave().then(function(stock) {
+            var stockInfo = {
+                id: stock._id,
+                logo: stock.logo
+            };
 
-router.post('/subscribe', mw.requireClientAuth, (req, res, next) => {
-    req.user.subscribe(req.body.id, (err, subscription) => {
-        if (err) {
-            return next(err);
-        }
-
-        req.user.save((err, user) => {
-            if (err) {
-                return next(err);
-            }
-
-            res.JSONAnswer('subscribeStock', subscription.code);
-        });
-    });
-});
-
-router.post('/unsubscribe', mw.requireClientAuth, (req, res, next) => {
-    Stock.findOne({'_id':new ObjectID(req.body.id)}, (err, stock) => {
-        if (err) {
-            return next(err);
-        }
-        stock.removeSubscriber(req.user._id.toString(), (err) => {
-            if (err) {
-                return next(err);
-            }
-
-            req.user.unsubscribe(stock._id);
-            res.JSONAnswer('unsubscribestock', 'success');
-        });
-    });
-});
-
-router.get('/info', mw.requireAnyAuth, (req, res, next) => {
-    try {
-        var stockID = new ObjectID(req.query.id);
-    } catch (e) {
-        return next(new JSONError('stockinfo', 'Нет такой акции', 404));
+            res.JSONAnswer(StringResources.answers.STOCK, stockInfo);
+        }).catch(next);
     }
 
+    static editStock (req, res, next) {
 
-    Stock.findOneAndPopulate({_id: stockID}, (err, stock) => {
-        if (err) return next(err);
+    }
 
-        if (!stock) return next(new JSONError('stockinfo', 'Нет такой акции', 404));
+    static removeStock (req, res, next) {
+        var query = QueryBuilder.entityIdEqualsTo(req.body.id);
 
-        if (req.user) stock.incrementNumberOfViews();
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock) {
+                    var notFoundError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.errors.NO_SUCH_STOCK, 404);
+                    return next(notFoundError);
+                }
 
-        res.JSONAnswer('stockinfo', stock.toJSON(req.user ? req.user._id : undefined));
-    });
-});
+                if (!stock.isOwnedBy(req.company._id)) {
+                    var rightsError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.errors.NOT_ENOUGH_RIGHTS);
+                    return next(rightsError);
+                }
 
-router.get('/feed', mw.requireClientAuth, (req, res, next) => {
-    req.user.getSubscribitions((err, stocks) => {
-        if (err) {
-            return next(err);
-        }
+                stock.prepareRemove().then(function(stock) {
+                    stock.remove();
+                    Shappy.logger.info('Акция с айди ' + stock._id + ' удалена');
+                    res.JSONAnswer(StringResources.answers.STOCK, stock._id);
+                });
+            })
+            .catch(next);
+    }
 
-        res.JSONAnswer('userstocks', stocks);
-    });
-});
+    static getStocksOfCurrentCompany (req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.company._id);
 
-router.get('/all', mw.requireClientAuth, (req, res, next) => {
-    Stock.findAndPopulate({}, (err, stocks) => {
-        if (err) return next(err);
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                Shappy.logger.info('Отправляю клиенту акции компании ' + req.company.login);
 
-        if (stocks.length == 0)
-            res.JSONAnswer('stock', []);
+                var stocksJSON = stocks.map(stock => stock.toJSON());
 
-        res.JSONAnswer('stock', Stock.arrayToJSON(stocks, req.user._id));
-    });
-});
+                res.JSONAnswer(StringResources.answers.STOCKS, stocksJSON);
+            })
+            .catch(next);
+    }
 
-router.get('/me', mw.requireCompanyAuth, (req, res, next) => {
-    Stock.byCompanyID(req.company._id, (err, stocks) => {
-        if (err) {
-            return next(err);
-        }
+    static subscribeClientToStock (req, res, next) {
+    }
 
-        Shappy.logger.info('Отправляю клиенту акции компании ' + req.company.login);
-        res.JSONAnswer('stocks', Stock.arrayToJSON(stocks));
-    });
-});
+    static unsubscribeClientFromStock (req, res, next) {
 
-module.exports = router;
+    }
+
+    static getClientFeed (req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.user.stocks);
+
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+                res.JSONAnswer(StringResources.answers.USER_STOCKS, stocksJSON);
+            })
+            .catch(next);
+    }
+
+    static getAllStocks (req, res, next) {
+        var findAllQuery = {};
+
+        Stock.findAndPopulate(findAllQuery)
+            .then(function(stocks) {
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+                res.JSONAnswer(StringResources.answers.STOCK, stocksJSON);
+            })
+            .catch(next);
+    }
+}
+
+module.exports = StockController;

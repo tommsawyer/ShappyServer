@@ -1,57 +1,57 @@
-var JSONError = require('../../lib/json_error');
-var express   = require('express');
-var mw        = require('../../utils/middlewares');
-var mongoose  = require('mongoose');
-var Stock     = mongoose.model('Stock');
-var router    = express.Router();
+'use strict';
 
-router.get('/check', mw.requireCompanyAuth, (req, res, next) => {
-    var code = req.query.code;
+var JSONError       = require('../../../lib/json_error'),
+    mongoose        = require('mongoose'),
+    QueryBuilder    = require('../../../lib/query_builder'),
+    StringResources = require('../../../lib/string_resources'),
+    Stock           = mongoose.model('Stock');
 
-    Stock.getStocksBySubscriptionCode(code)
-        .then(function(stocks) {
-            stock.getSubscriberBySubscriptionCode(code)
-                .then(function(user) {
+class CodesController {
+    static checkActivationCode(req, res, next) {
+        var activationCode = req.query.code,
+            activationInfo = {};
 
-                });
-        })
-        .catch(function(error) {
-           next(error);
-        });
+        var query = QueryBuilder.findInArrayField('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
 
-    Stock.bySubscriptionCode(code, (err, stock) => {
-        if (err) return next(err);
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock.isOwnedBy(req.company._id)) {
+                    var rightsError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.answers.NOT_ENOUGH_RIGHTS, 403);
+                    return next(rightsError);
+                }
 
-        if (!stock.checkOwner(req.company._id))
-            return next(new JSONError('error', 'Вы не имеете права просматривать информацию об этой подписке', 403));
+                activationInfo.stock = stock.toJSON();
 
-        stock.getUserByCode(code, (err, clientJSON) => {
-            if (err) return next(err);
+                return stock.usagesController.getUserByCode(activationCode);
+            })
+            .then(function(client) {
+                activationInfo.user = client.toJSON();
 
-            res.JSONAnswer('check', {
-                user: clientJSON,
-                stock: stock.toJSON()
-            });
-        });
-    });
-});
+                res.JSONAnswer(StringResources.answers.CHECK, activationInfo)
+            })
+            .catch(next);
+    }
 
-router.post('/apply', mw.requireCompanyAuth, (req, res, next) => {
-    var code = req.body.code;
-    Stock.bySubscriptionCode(code, (err, stock) => {
-        if (err) return next(err);
+    static applyActivationCode(req, res, next) {
+        var activationCode = req.body.code,
+            query = QueryBuilder.findInArrayField('subscribes', QueryBuilder.fieldEqualsTo('code', activationCode));
 
-        if (!stock.checkOwner(req.company._id))
-            return next(new JSONError('error', 'Вы не имеете права активировать эту подписку', 403));
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock.isOwnedBy(req.company._id)) {
+                    var rightsError = new JSONError(StringResources.answers.ERROR,
+                        StringResources.errors.NOT_ENOUGH_RIGHTS, 403);
+                    return next(rightsError);
+                }
 
-        if (stock.incrementNumberOfUses(code)) {
-            res.JSONAnswer('apply', 'success');
-        } else {
-            return next(new JSONError('error', 'Не удалось активировать акцию'));
-        }
-    });
-});
+                return stock.usagesController.incrementNumberOfUses(code);
+            })
+            .then(function() {
+               res.JSONAnswer(StringResources.answers.APPLY, StringResources.answers.OK);
+            })
+            .catch(next);
+    }
+}
 
-module.exports = router;
-
-
+module.exports = CodesController;

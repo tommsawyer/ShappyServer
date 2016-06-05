@@ -1,119 +1,144 @@
-var express = require('express');
-var mw = require('../../utils/middlewares.js');
-var mongoose = require('mongoose');
-var router = express.Router();
-var Company = mongoose.model('Company');
-var Stock = mongoose.model('Stock');
-var JSONError = require('../../lib/json_error');
-var ObjectID = require('mongodb').ObjectId;
+'use strict';
 
-router.get('/stocksperdate', mw.requireCompanyAuth, (req, res, next) => {
-    Stock.byCompanyID(req.company._id, (err, stocks) => {
-        if (err) {
-            return next(err);
-        }
+var JSONError       = require('../../../lib/json_error'),
+    StringResources = require('../../../lib/string_resources'),
+    QueryBuilder    = require('../../../lib/query_builder'),
+    mongoose        = require('mongoose'),
+    Stock           = mongoose.model('Stock');
 
-        if (stocks.length == 0) {
-            return res.JSONAnswer('stocksperdate', {});
-        }
+class StatsController {
+    static stocksPerDate(req, res, next) {
+        var query = QueryBuilder.fieldEqualsTo('company', req.company._id);
 
-        var dates = {};
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                if (stocks.length === 0) {
+                    return res.JSONAnswer(StringResources.answers.STOCKS_PER_DATE, {});
+                }
 
-        Stock.arrayToJSON(stocks).forEach((stock) => {
-            stock.subscribes.forEach((subscr) => {
-                var date = subscr.date.toDateString();
-                dates[date] = dates[date] + 1 || 1;
-            });
-        });
+                var dates = {};
 
-        res.JSONAnswer('stocksperdate', dates);
-    });
-});
+                stocks
+                    .map(stock => stock.toJSON())
+                    .forEach((stock) => {
+                        stock.subscribes.forEach((subscr) => {
+                            var date = subscr.date.toDateString();
+                            dates[date] = dates[date] + 1 || 1;
+                        });
+                    });
 
-router.get('/usersperstock', mw.requireCompanyAuth, (req, res, next) => {
-    try {
-        var id = new ObjectID(req.query.id);
-    } catch (e) {
-        return next(new JSONError('usersperstock', 'Такой акции не найдено', 404));
+                res.JSONAnswer(StringResources.answers.STOCKS_PER_DATE, dates);
+            })
+            .catch(next);
     }
 
-    Stock.findOne({_id: id}, (err, stock) => {
-        if (err) return next(err);
-        if (!stock) return next(new JSONError('usersperstock', 'Такой акции не найдено', 404));
+    static usersPerStock(req, res, next) {
+        var stockID = Shappy.utils.tryConvertToMongoID(req.query.id);
 
-        var stats = {};
-        stats[stock.name] = stock.getSubscriptionDates().map((date) => {
-            return date.toDateString();
-        });
-
-        res.JSONAnswer('usersperstock', stats);
-    });
-});
-
-router.get('/countperstock', mw.requireCompanyAuth, (req, res, next) => {
-    Stock.byCompanyID(req.company._id, (err, stocks) => {
-        if (err) return next(err);
-
-        if (stocks.length == 0) {
-            return res.JSONAnswer('countperstock', {});
+        if (stockID === null) {
+            var error = new JSONError(StringResources.answers.USERS_PER_STOCK,
+                                      StringResources.errors.NO_SUCH_STOCK, 404);
+            return next(error);
         }
 
-        var data = {};
+        var query = QueryBuilder.entityIdEqualsTo(stockID);
 
-        stocks.forEach((stock) => {
-            data[stock.name] = stock.getSubscriptionDates().map((date) => {
-                return date.toDateString();
-            });
-        });
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock) {
+                    var error = new JSONError(StringResources.answers.USERS_PER_STOCK,
+                        StringResources.errors.NO_SUCH_STOCK, 404);
+                    return next(error);
+                }
 
-        res.JSONAnswer('countperstock', data);
-    });
-});
+                var stats = {};
 
-router.get('/stockinfo',     mw.requireCompanyAuth, (req, res, next) => {
-    try {
-        var stockID = new ObjectID(req.query.id);
-    } catch (e) {
-        return next(new JSONError('error', 'Акции с таким айди не найдено', 404));
+                stats[stock.name] = stock.subcribesController.getDates().map(function(date) {
+                    return date.toDateString();
+                });
+
+                res.JSONAnswer(StringResources.answers.USERS_PER_STOCK, stats);
+            })
+            .catch(next);
     }
 
-    Stock.findOne({_id: stockID}, (err, stock) => {
-        if (err) return next(err);
+    static countPerStock(req, res, next) {
+        var query = QueryBuilder.fieldEqualsTo('company', req.company._id);
 
-        if (!stock)
-            return next(new JSONError('error', 'Акции с таким айди не найдено', 404));
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                if (stock.length === 0) {
+                    return res.JSONAnswer(StringResources.answers.COUNT_PER_STOCK, {});
+                }
 
-        var stockInfo = {
-            viewsInFeed: stock.viewsInFeed || 0,
-            views: stock.views || 0,
-            subscribes: stock.getSubscribesCount(),
-            uses: stock.getNumberOfUses(),
-            reuses: stock.getNumberOfReUses()
-        };
+                var stats = {};
 
-        res.JSONAnswer('stockinfo', stockInfo);
-    });
-});
+                stocks.forEach(function(stock) {
+                    stats[stock.name] = stock.subcribesController.getDates().map(function(date) {
+                        return date.toDateString();
+                    });
+                });
 
-router.get('/numberofuses',  mw.requireCompanyAuth, (req, res, next) => {
-   Stock.byCompanyID(req.company._id, (err, stocks) => {
-       if (err) return next(err);
+                res.JSONAnswer(StringResources.answers.COUNT_PER_STOCK, stats);
+            })
+            .catch(next);
+    }
 
-       if (stocks.length == 0) {
-           return res.JSONAnswer('numberofuses', {});
-       }
+    static stockInfo(req, res, next) {
+        var stockID = Shappy.utils.tryConvertToMongoID(req.query.id);
 
-       var stats = {};
+        if (stockID === null) {
+            var error = new JSONError(StringResources.answers.STOCK_INFO,
+                StringResources.errors.NO_SUCH_STOCK, 404);
+            return next(error);
+        }
 
-       stocks.forEach((stock) => {
-           stats[stock.name] = [];
-           stock.subscribes.forEach((subscribe) => {
-               stats[stock.name] = stats[stock.name].concat(subscribe.numberOfUses.map(date => date.toDateString()));
-           });
-       });
+        var query = QueryBuilder.entityIdEqualsTo(stockID);
 
-       res.JSONAnswer('numberofuses', stats);
-   });
-});
+        Stock.findOneAndPopulate(query)
+            .then(function(stock) {
+                if (!stock) {
+                    var error = new JSONError(StringResources.answers.STOCK_INFO,
+                        StringResources.errors.NO_SUCH_STOCK, 404);
+                    return next(error);
+                }
 
-module.exports = router;
+                var stockInfo = {
+                    viewsInFeed: stock.viewsInFeed || 0,
+                    views: stock.views || 0,
+                    subscribes: stock.subscribesController.getSubscribesCount(),
+                    uses: stock.subscribesController.getNumberOfUses(),
+                    reuses: stock.subscribesController.getNumberOfReUses()
+                };
+
+                res.JSONAnswer(StringResources.answers.STOCK_INFO, stockInfo);
+            })
+            .catch(next);
+    }
+
+    static numberOfUses(req, res, next) {
+        var query = QueryBuilder.fieldEqualsTo('company', req.company._id);
+
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                if (stocks.length === 0) {
+                    return res.JSONAnswer(StringResources.answers.NUMBER_OF_USES, {});
+                }
+
+                var stats = {};
+
+                stocks.forEach((stock) => {
+                    stats[stock.name] = [];
+                    stock.subscribes.forEach((subscribe) => {
+                        stats[stock.name] = stats[stock.name].concat(subscribe.numberOfUses.map(date => date.toDateString()));
+                    });
+                });
+
+                res.JSONAnswer(StringResources.answers.NUMBER_OF_USES, stats);
+
+            })
+            .catch(err);
+    }
+}
+
+module.exports = StatsController;

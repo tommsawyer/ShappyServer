@@ -1,134 +1,155 @@
-var express   = require('express');
-var mw        = require('../../utils/middlewares.js');
-var mongoose  = require('mongoose');
-var JSONError = require('../../lib/json_error');
-var ObjectID  = require('mongodb').ObjectID;
-var Stock     = mongoose.model('Stock');
-var Client    = mongoose.model('Client');
-var Category  = mongoose.model('Category');
-var router    = express.Router();
+'use strict';
 
-router.get('/', mw.requireClientAuth, (req, res, next) => {
-    var query = {
-        companyID : req.query.companyID,
-        searchword: req.query.searchword,
-        category  : req.category
-    };
+var JSONError       = require('../../../lib/json_error'),
+    StringResources = require('../../../lib/string_resources'),
+    mongoose        = require('mongoose'),
+    Stock           = mongoose.model('Stock'),
+    Client          = mongoose.model('Client'),
+    QueryBuilder    = require('../../../lib/query_builder');
 
-    Stock.byQuery(query, (err, stocks) => {
-        if (err) {
-            return next(err);
-        }
+class FilterController {
+    static buildQueryForSearch(req) {
+        var companyEqualsRequestCompany = req.query.companyID
+            ? QueryBuilder.fieldEqualsTo('company', req.query.companyID)
+            : null;
 
-        Stock.incrementFeedViewsInArray(stocks);
+        var categoryEqualsRequestCompany = req.query.category
+            ? QueryBuilder.fieldEqualsTo('category', req.query.category)
+            : null;
 
-        Shappy.logger.info('Отправляю клиенту найденные акции');
-        res.JSONAnswer('stocks', Stock.arrayToJSON(stocks, req.user._id));
-    });
+        var searchByKeyWord = req.query.searchword
+            ? QueryBuilder.some(
+                QueryBuilder.fieldLikeRegExp('name', '.*' + query.searchword + '.*'),
+                QueryBuilder.fieldLikeRegExp('description', '.*' + query.searchword + '.*')
+            )
+            : null;
 
-});
+        var queries = [companyEqualsRequestCompany, categoryEqualsRequestCompany, searchByKeyWord]
+            .map(query => query !== null);
 
-router.get('/company', mw.requireClientAuth, (req, res, next) => {
-    Stock.byCompanyID(req.query.companyID, (err, stocks) => {
-        if (err) {
-            return next(err);
-        }
-
-        Stock.incrementFeedViewsInArray(stocks);
-
-        Shappy.logger.info('У компании ' + req.query.companyID + ' ' + stocks.length + ' акций. Отправляю клиенту');
-        res.JSONAnswer('stocks', Stock.arrayToJSON(stocks, req.user._id));
-    });
-});
-
-router.get('/category', mw.requireClientAuth, (req, res, next) => {
-    try {
-        var CategoryID = new ObjectID(req.query.id);
-    } catch (e) {
-        return next(new JSONError('error', 'Нет такой категории', 404));
+        return QueryBuilder.all.apply(null, queries);
     }
 
-    Category.findOne({_id: CategoryID}, (err, category) => {
-        if (err) return next(err);
+    static complexStockSearch(req, res, next) {
+        var query = FilterController.buildQueryForSearch(req);
 
-        if (!category) return next(new JSONError('error', 'Нет такой категории', 404));
-
-        Stock.findAndPopulate({category: CategoryID},(err, stocks) => {
+        Stock.find(query, function(err, stocks) {
             if (err) return next(err);
 
-            Stock.incrementFeedViewsInArray(stocks);
-
-            if (stocks.length == 0) return res.JSONAnswer('stocks', []);
-
-            res.JSONAnswer('stocks', Stock.arrayToJSON(stocks, req.user._id));
-        });
-    });
-
-});
-
-router.get('/search', mw.requireClientAuth, (req, res, next) => {
-    var searchWord = req.query.searchword;
-
-    Stock.bySearchWord(searchWord, (err, stocks) => {
-        if (err) {
-            return next(err);
-        }
-
-        Stock.incrementFeedViewsInArray(stocks);
-
-        Shappy.logger.info('Поиск по запросу ' + searchWord + ' нашел ' + stocks.length + ' акций');
-        res.JSONAnswer('stocks', Stock.arrayToJSON(stocks, req.user._id));
-    });
-});
-
-router.get('/subscribitions', mw.requireClientAuth, (req, res, next) => {
-    Stock.byUserFilter(req.user.filters, (err, stocks) => {
-        if (err) return next(err);
-
-        Stock.incrementFeedViewsInArray(stocks);
-
-        res.JSONAnswer('subscribitions', Stock.arrayToJSON(stocks, req.user._id));
-    });
-});
-
-router.get('/friends', mw.requireClientAuth, (req, res, next) => {
-    var friendsID = req.user.friends.map((id) => {return new ObjectID(id)});
-
-    Client.find({_id: {$in: friendsID}}, (err, friends) => {
-        if (err) {
-            return next(err);
-        }
-
-        var stocksID = [];
-
-        friends.forEach((friend) => {
-            friend.stocks.forEach((stock) => {
-                if (stocksID.indexOf(stock) == -1) {
-                    stocksID.push(stock);
-                }
+            stocks.forEach(function(stock) {
+                stock.viewsController.incrementFeedViews();
             });
-        });
 
-        if (stocksID.length == 0) {
-            return res.JSONAnswer('friendsfeed', []);
-        } else {
-            stocksID = stocksID.map((stock) => {return new ObjectID(stock)});
+            var stocksJSON = stocks.map(stock => stock.toJSON());
+
+            res.JSONAnswer(StringResources.answers.STOCKS, stocksJSON);
+        });
+    }
+
+    static findStocksByCompany(req, res, next) {
+        var companyID = Shappy.utils.tryConvertToMongoID(req.query.companyID);
+
+        if (companyID === null) {
+            var error = new JSONError(StringResources.answers.ERROR,
+                                      StringResources.errors.NO_SUCH_COMPANY, 404);
+            return next(error);
         }
 
-        Stock.findAndPopulate({_id: {$in: stocksID}}, (err, stocks) => {
-            if (err) {
-                return next(err);
-            }
+        var query = QueryBuilder.fieldEqualsTo('company', companyID);
 
-            if (stocks.length == []) {
-                return res.JSONAnswer('friendsfeed', []);
-            }
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                stocks.forEach(stock => stock.viewsController.incrementFeedViews());
 
-            Stock.incrementFeedViewsInArray(stocks);
+                res.JSONAnswer(StringResources.answers.STOCKS,
+                               stocks.map(stock => stock.toJSON(req.user._id)));
+            })
+            .catch(next);
+    }
 
-            res.JSONAnswer('friendsfeed', Stock.arrayToJSON(stocks, req.user._id));
+    static findStocksByCategory(req, res, next) {
+        var categoryID = Shappy.utils.tryConvertToMongoID(req.query.id);
+
+        if (categoryID === null) {
+            var error = new JSONError(StringResources.answers.ERROR,
+                StringResources.errors.NO_SUCH_CATEGORY, 404);
+            return next(error);
+        }
+
+        var query = QueryBuilder.fieldEqualsTo('category', categoryID);
+
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                stocks.forEach(stock => stock.viewsController.incrementFeedViews());
+
+                res.JSONAnswer(StringResources.answers.STOCKS,
+                    stocks.map(stock => stock.toJSON(req.user._id)));
+            })
+            .catch(next);
+    }
+
+    static findStocksByKeyWord(req, res, next) {
+        var nameContainsSearchWord = '.*' + req.query.searchword + '.*',
+            query = QueryBuilder.fieldLikeRegExp('name', nameContainsSearchWord);
+
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                stocks.forEach(stock => stock.viewsController.incrementFeedView());
+
+                res.JSONAnswer(StringResources.answers.STOCKS,
+                    stocks.map(stock => stock.toJSON(req.user._id)));
+            })
+            .catch(next);
+    }
+
+    static findSubscribedStocks(req, res, next) {
+        var query = QueryBuilder.some(
+            QueryBuilder.valueInArray('company',  req.user.filters.companies),
+            QueryBuilder.valueInArray('category', req.user.filters.categories)
+        );
+
+        Stock.findAndPopulate(query)
+            .then(function(stocks) {
+                stocks.forEach(function(stock) {
+                    stock.viewsController.incrementFeedViews();
+                });
+
+                var stocksJSON = stocks.map(stock => stock.toJSON());
+
+                res.JSONAnswer(StringResources.answers.SUBSCRIPTIONS, stocksJSON);
+            })
+            .catch(next);
+    }
+
+    static findFriendsStocks(req, res, next) {
+        var query = QueryBuilder.valueInArray('_id', req.user.friends);
+
+        Client.find(query, function(err, userFriends) {
+            if (err) return next(err);
+
+            var stocksIds = userFriends
+                .map(friend => friend.stocks)
+                // собрать акции всех друзей в один массив
+                .reduce(function(stocksArray, friendStocksArray) {
+                    return stocksArray.concat(friendStocksArray);
+                }, [])
+                // взять только уникальные
+                .filter((stockID, index, stocksArray) => {return stocksArray.indexOf(stockID) === index});
+
+            var query = QueryBuilder.valueInArray('_id', stocksIds);
+
+            Stock.findAndPopulate(query)
+                .then(function(stocks) {
+                    stocks.forEach(function(stock) {
+                        stock.viewsController.incrementFeedViews();
+                    });
+
+                    var stocksJSON = stocks.map(stock => stock.toJSON());
+                    res.JSONAnswer(StringResources.answers.FRIENDS_FEED, stocksJSON)
+                })
+                .catch(next)
         });
-    });
-});
+    }
+}
 
-module.exports = router;
+module.exports = FilterController;
